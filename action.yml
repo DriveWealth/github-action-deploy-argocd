@@ -136,12 +136,21 @@ runs:
         force: true
 
     - name: Setup helmfile
-      uses: mamezou-tech/setup-helmfile@v2.2.0
       if: ${{ inputs.operation == 'deploy' }}
-      with:
-        helmfile-version: "${{ inputs.helmfile-version }}"
-        helm-version: "${{ inputs.helm-version }}"
-        install-kubectl: false
+      shell: bash
+      run: |
+        HELMFILE_VERSION="${{ inputs.helmfile-version }}"
+        HELMFILE_VERSION="${HELMFILE_VERSION#v}"
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  ARCH="amd64" ;;
+          aarch64) ARCH="arm64" ;;
+        esac
+        TMP=$(mktemp -d)
+        curl -sSL "https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_${ARCH}.tar.gz" \
+          | tar -xz -C "$TMP"
+        sudo mv "$TMP/helmfile" /usr/local/bin/helmfile
+        sudo chmod +x /usr/local/bin/helmfile
 
     - name: Setup node
       uses: actions/setup-node@v6
