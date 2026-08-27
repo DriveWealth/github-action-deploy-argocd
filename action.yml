@@ -117,7 +117,11 @@ inputs:
   kube-version:
     description: "Kubernetes version for helm/helmfile rendering (e.g. `1.28`). When provided, skips SSM metadata lookup via chamber."
     required: false
-    default: ""    
+    default: ""
+  deployment-id:
+    description: "Unique identifier for this specific deploy attempt (e.g. run ID + attempt), used to dedupe ArgoCD notifications per attempt rather than per commit"
+    required: false
+    default: ''
 outputs:
   webapp-url:
     description: "Web Application url"
@@ -386,6 +390,7 @@ runs:
           name: ${{ inputs.namespace }}.${{ inputs.application }}
           namespace: ${{ inputs.namespace }}
           manifests: ${{ steps.config.outputs.path }}/manifests
+          deployment_id: ${{ inputs.deployment-id }}
 
     - name: Push to Github
       uses: nick-fields/retry@v4
