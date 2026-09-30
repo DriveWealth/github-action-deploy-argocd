@@ -93,7 +93,7 @@ inputs:
   commit-timeout:
     description: 'Commit timeout (in seconds)'
     required: false
-    default: "60"
+    default: "180"
   helm-dependency-build:
     description: 'Run helm dependency build, only for helm toolchain, `true` or `false`'
     required: false
@@ -442,7 +442,19 @@ runs:
           git add -A
           git status
           git diff-index --quiet HEAD || git commit -m "Deploy ${{ github.repository }} SHA ${{ github.sha }} RUN ${{ github.run_id }} ATEMPT ${{ github.run_attempt }}"
-          git push origin ${{ steps.destination.outputs.ref }}
+          # Many jobs (one per app, across PRs) push to the same branch at once. If the push is
+          # rejected, fetch and rebase onto the latest remote and push again, with random jitter
+          # so competing jobs do not retry in lockstep. Paths are disjoint, so the rebase is clean.
+          REF='${{ steps.destination.outputs.ref }}'
+          for i in 1 2 3 4 5 6; do
+            git push origin "${REF}" && break
+            if [ "${i}" -eq 6 ]; then
+              echo "::error::push to ${REF} rejected after ${i} attempts"
+              exit 1
+            fi
+            sleep $(( (RANDOM % 8) + i ))
+            git pull --rebase origin "${REF}"
+          done
 
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           
